@@ -1,0 +1,36 @@
+{
+  "name": "ironarc-api",
+  "version": "1.2.3",
+  "private": true,
+  "type": "module",
+  "main": "server.js",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.220",
+    "@anthropic-ai/sdk": "^0.93.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@openai/codex": "0.146.0",
+    "@simplewebauthn/server": "^13.1.1",
+    "web-push": "^3.6.7",
+    "zod": "^4.0.0"
+  },
+  "maintainers": [
+    {
+      "name": "Ramprasad Atluri",
+      "url": "https://github.com/ATLURI0001"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ATLURI0001/IronArc.git",
+    "directory": "api"
+  },
+  "homepage": "https://github.com/ATLURI0001/IronArc#readme",
+  "bugs": {
+    "url": "https://github.com/ATLURI0001/IronArc/issues"
+  }
+}
