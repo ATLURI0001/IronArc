@@ -171,3 +171,27 @@ test('every allowed change type has a validator that accepts a well-formed insta
     assert.equal(r.ok, true, `${type} should validate: ${JSON.stringify(r.errors)}`);
   }
 });
+
+test('reorder rejects duplicate exercise ids of equal length', () => {
+  const dup = review([change({ type: 'reorder', target: { routineId: 'r1' }, after: ['0001', '0001'] })]);
+  assert.equal(dup.ok, false);
+});
+
+test('add-routine preserves cardio min/speed and week must be an object', () => {
+  const r = review([
+    change({
+      type: 'add-routine',
+      target: {},
+      after: { name: 'Conditioning', ex: [{ id: '0001', mode: 'cardio', min: 30, speed: 10 }] },
+    }),
+  ]);
+  assert.equal(r.ok, true);
+  assert.equal(r.proposal.changes[0].after.ex[0].min, 30);
+  assert.equal(r.proposal.changes[0].after.ex[0].speed, 10);
+
+  const badPlan = validatePlan({
+    routines: [{ id: 'r1', name: 'A', ex: [{ id: '0001', sets: 3, reps: 10 }] }],
+    week: ['r1'],
+  });
+  assert.equal(badPlan.ok, false);
+});
