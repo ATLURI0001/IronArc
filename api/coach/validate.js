@@ -54,7 +54,20 @@ export function extractJSON(text) {
 const isStr = v => typeof v === 'string' && v.trim().length > 0;
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 const isInt = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+const isPlainObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const clampStr = (v, n) => String(v == null ? '' : v).slice(0, n);
+
+function sameMultiset(a, b) {
+  if (a.length !== b.length) return false;
+  const counts = new Map();
+  for (const item of a) counts.set(item, (counts.get(item) || 0) + 1);
+  for (const item of b) {
+    const remaining = counts.get(item) || 0;
+    if (!remaining) return false;
+    counts.set(item, remaining - 1);
+  }
+  return true;
+}
 
 /* =============================== created plans =============================== */
 
@@ -125,14 +138,22 @@ export function validatePlan(data, ctx = {}) {
   });
 
   // The week may only point at routines this bundle actually defines.
-  const known = new Set(routines.map(r => r.id));
+  const known = new Set();
+  for (const r of routines) {
+    if (known.has(r.id)) errors.push(`duplicate routine id "${r.id}"`);
+    known.add(r.id);
+  }
   const week = {};
-  Object.entries(data.week || {}).forEach(([d, rid]) => {
-    const day = +d;
-    if (!isInt(day, 0, 6)) { errors.push(`week key "${d}" is not a weekday number 0-6`); return; }
-    if (!known.has(rid)) { errors.push(`week[${d}] points at "${rid}", which is not one of the routines in this plan`); return; }
-    week[day] = rid;
-  });
+  if (data.week != null && !isPlainObj(data.week)) {
+    errors.push('week must be an object mapping weekday 0-6 to routine id');
+  } else {
+    Object.entries(data.week || {}).forEach(([d, rid]) => {
+      const day = +d;
+      if (!isInt(day, 0, 6)) { errors.push(`week key "${d}" is not a weekday number 0-6`); return; }
+      if (!known.has(rid)) { errors.push(`week[${d}] points at "${rid}", which is not one of the routines in this plan`); return; }
+      week[day] = rid;
+    });
+  }
 
   // FR-20: never start someone above what they have actually lifted.
   const caps = new Map((ctx.workingWeights || []).map(w => [w.id, w.best]));
@@ -268,34 +289,49 @@ export function validateReview(data, plan) {
         const order = Array.isArray(c.after) ? c.after : null;
         if (!order) { errors.push(`${where}.after must be an array of exercise ids in the new order`); return; }
         const have = (routine.ex || []).map(e => e.id);
-        if (order.length !== have.length || order.some(id => !have.includes(id))) {
-          errors.push(`${where}.after must list exactly the ${have.length} exercise ids already in "${routine.name}", reordered`); return;
+        if (!sameMultiset(order, have)) {
+          errors.push(`${where}.after must list a permutation of the ${have.length} exercise ids already in "${routine.name}"`); return;
         }
         out.after = order;
         break;
       }
       case 'superset': {
-        const a = c.after || {};
+        if (!isPlainObj(c.after)) { errors.push(`${where}.after must be an object`); return; }
+        const a = c.after;
         if (a.link && !isStr(a.with)) { errors.push(`${where}.after.with is required when linking a superset`); return; }
         if (a.link && !(routine.ex || []).some(e => e.id === a.with)) { errors.push(`${where}.after.with "${a.with}" is not in routine "${routine.name}"`); return; }
         out.after = { link: !!a.link, ...(a.link ? { with: a.with } : {}) };
         break;
       }
       case 'add-routine': {
-        const a = c.after || {};
+        if (!isPlainObj(c.after)) { errors.push(`${where}.after must be an object`); return; }
+        const a = c.after;
         if (!isStr(a.name)) { errors.push(`${where}.after.name is required`); return; }
         const ex = (Array.isArray(a.ex) ? a.ex : []).filter(e => e && isStr(e.id) && libraryHas(e.id)).slice(0, MAX_EX_PER_ROUTINE);
         if (!ex.length) { errors.push(`${where}.after.ex must list at least one exercise from the library`); return; }
         out.after = {
           name: clampStr(a.name, 40), emoji: clampStr(a.emoji || '🏋️', 8),
           ...(POLICIES.includes(a.prog) ? { prog: a.prog } : {}),
-          ex: ex.map(e => ({
-            id: e.id, name: libraryName(e.id),
-            sets: isInt(e.sets, 1, 10) ? e.sets : 3,
-            mode: MODES.includes(e.mode) ? e.mode : 'reps',
-            ...(isInt(e.reps, 1, 100) ? { reps: e.reps } : {}),
-            ...(isInt(e.sec, 5, 3600) ? { sec: e.sec } : {})
-          }))
+          ex: ex.map(e => {
+            const mode = MODES.includes(e.mode) ? e.mode : 'reps';
+            if (mode === 'cardio') {
+              return {
+                id: e.id, name: libraryName(e.id),
+                sets: isInt(e.sets, 1, 10) ? e.sets : 3,
+                mode,
+                min: isInt(e.min, 1, 180) ? e.min : 20,
+                speed: isNum(e.speed) && e.speed > 0 ? e.speed : 8,
+              };
+            }
+            return {
+              id: e.id, name: libraryName(e.id),
+              sets: isInt(e.sets, 1, 10) ? e.sets : 3,
+              mode,
+              ...(isInt(e.reps, 1, 100) ? { reps: e.reps } : {}),
+              ...(isInt(e.sec, 5, 3600) ? { sec: e.sec } : {}),
+              ...(isNum(e.weight) && e.weight > 0 ? { weight: e.weight } : {}),
+            };
+          })
         };
         break;
       }
