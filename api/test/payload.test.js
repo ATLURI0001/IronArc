@@ -116,3 +116,36 @@ test('declined changes are carried forward so the Coach does not nag', () => {
   assert.equal(p.previouslyDeclined.length, 1);
   assert.equal(p.previouslyDeclined[0].type, 'sets');
 });
+
+test('cardio target min/speed survive and invalid durations/bodyweights/weights are guarded', () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const S = sampleState({
+    bodyweight: [null, { d: today, w: Number.NaN }, { d: today, w: 74.5 }],
+  });
+  S.workouts = [
+    {
+      id: 'w-cardio',
+      d: today,
+      name: 'Run',
+      start: 100_000,
+      end: 50_000, // reversed timestamps must not yield negative minutes
+      entries: [
+        {
+          id: '0001',
+          target: { sets: 1, min: 25, speed: 10.5 },
+          sets: [{ done: true, min: 25, speed: 10.5, w: Number.POSITIVE_INFINITY }],
+        },
+      ],
+    },
+  ];
+
+  const review = payload.build(S, 'u1', { kind: 'review' });
+  assert.equal(review.window.workouts[0].minutes, null);
+  assert.equal(review.window.workouts[0].entries[0].target.min, 25);
+  assert.equal(review.window.workouts[0].entries[0].target.speed, 10.5);
+  assert.equal(review.aggregates.sessionMinutes, null);
+  assert.deepEqual(review.bodyweight.series, [{ d: today, w: 74.5 }]);
+
+  const create = payload.build(S, 'u1', { kind: 'create' });
+  assert.equal(create.history, undefined);
+});

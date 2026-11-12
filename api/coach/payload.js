@@ -192,7 +192,9 @@ function aggregates(S, workouts) {
     if (bp) hit[bp] = (hit[bp] || 0) + en.sets.filter(s => s.done).length;
   }));
 
-  const durations = workouts.map(w => (w.end && w.start ? Math.round((w.end - w.start) / 60000) : null)).filter(Boolean);
+  const durations = workouts
+    .map(w => (Number.isFinite(w.end) && Number.isFinite(w.start) && w.end >= w.start ? Math.round((w.end - w.start) / 60000) : null))
+    .filter(d => d !== null);
   return {
     exercises,
     adherence: { plannedPerWeek: plannedDays, sessionsInWindow: workouts.length, distinctDays: trained.size, dayOverrides: reschedules },
@@ -208,14 +210,23 @@ function cleanWorkout(w) {
   return {
     d: w.d,
     name: w.name || null,
-    minutes: w.end && w.start ? Math.round((w.end - w.start) / 60000) : null,
+    minutes: Number.isFinite(w.end) && Number.isFinite(w.start) && w.end >= w.start ? Math.round((w.end - w.start) / 60000) : null,
     ...(w.rating ? { rating: w.rating } : {}),
     ...(w.note ? { note: String(w.note).slice(0, 300) } : {}),
     prs: (w.prs || []).length,
     entries: (w.entries || []).map(en => ({
       id: en.id,
       name: libraryName(en.id),
-      target: en.target ? { sets: en.target.sets, reps: en.target.reps, sec: en.target.sec, weight: en.target.weight } : null,
+      target: en.target
+        ? {
+            sets: en.target.sets,
+            reps: en.target.reps,
+            sec: en.target.sec,
+            weight: en.target.weight,
+            ...(en.target.min != null ? { min: en.target.min } : {}),
+            ...(en.target.speed != null ? { speed: en.target.speed } : {})
+          }
+        : null,
       sets: (en.sets || []).map(s => {
         const o = { done: !!s.done };
         if (s.w != null) o.w = s.w;
@@ -283,7 +294,9 @@ export function build(S, uid, opts = {}) {
     p.aggregates = aggregates(S, workouts);
     p.bodyweight = {
       goal: S.targetW ?? null,
-      series: (S.bodyweight || []).filter(b => !p.window.from || b.d >= p.window.from).map(b => ({ d: b.d, w: b.w }))
+      series: (S.bodyweight || [])
+        .filter(b => b && b.d && Number.isFinite(b.w) && (!p.window.from || b.d >= p.window.from))
+        .map(b => ({ d: b.d, w: b.w }))
     };
     if (opts.note) p.userNote = String(opts.note).slice(0, 1000);
     p.library = librarySlice(S, profile?.equipment);
@@ -293,7 +306,7 @@ export function build(S, uid, opts = {}) {
     // start from evidence rather than optimism (B2/FR-20).
     const best = {};
     (S.workouts || []).forEach(w => (w.entries || []).forEach(en => en.sets?.forEach(s => {
-      if (s.done && s.w > 0) best[en.id] = Math.max(best[en.id] || 0, s.w);
+      if (s.done && Number.isFinite(s.w) && s.w > 0) best[en.id] = Math.max(best[en.id] || 0, s.w);
     })));
     if (Object.keys(best).length) {
       p.history = {
