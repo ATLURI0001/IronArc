@@ -149,3 +149,64 @@ test('cardio target min/speed survive and invalid durations/bodyweights/weights 
   const create = payload.build(S, 'u1', { kind: 'create' });
   assert.equal(create.history, undefined);
 });
+
+test('cleanWorkout sanitizes set metrics against negative/NaN numbers and normalizes prs count', () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const S = sampleState();
+  S.workouts = [
+    {
+      id: 'w-dirty',
+      d: today,
+      name: 'Sanitize Check',
+      start: 1000,
+      end: 61000,
+      prs: 4.8, // non-array finite numeric count should be floored
+      entries: [
+        {
+          id: '0001',
+          sets: [
+            {
+              done: true,
+              w: -10, // negative should be omitted
+              r: Number.NaN, // NaN should be omitted
+              sec: -5,
+              min: Number.POSITIVE_INFINITY, // infinite should be omitted
+              speed: -2,
+              rir: -1,
+              rpe: 8.5, // valid finite >= 0
+            },
+            {
+              done: false,
+              w: 50,
+              r: 8,
+              sec: 45,
+              min: 0,
+              speed: 5.5,
+              rir: 2,
+              rpe: 7,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: 'w-invalid-prs',
+      d: today,
+      name: 'Invalid PRS',
+      start: 2000,
+      end: 62000,
+      prs: -3, // negative prs should fallback to 0
+      entries: [],
+    },
+  ];
+
+  const review = payload.build(S, 'u1', { kind: 'review' });
+  const w1 = review.window.workouts.find(w => w.name === 'Sanitize Check');
+  assert.equal(w1.prs, 4);
+  const sets = w1.entries[0].sets;
+  assert.deepEqual(sets[0], { done: true, rpe: 8.5 });
+  assert.deepEqual(sets[1], { done: false, w: 50, r: 8, sec: 45, min: 0, speed: 5.5, rir: 2, rpe: 7 });
+
+  const w2 = review.window.workouts.find(w => w.name === 'Invalid PRS');
+  assert.equal(w2.prs, 0);
+});

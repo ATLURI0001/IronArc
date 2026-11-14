@@ -213,7 +213,7 @@ function cleanWorkout(w) {
     minutes: Number.isFinite(w.end) && Number.isFinite(w.start) && w.end >= w.start ? Math.round((w.end - w.start) / 60000) : null,
     ...(w.rating ? { rating: w.rating } : {}),
     ...(w.note ? { note: String(w.note).slice(0, 300) } : {}),
-    prs: (w.prs || []).length,
+    prs: Array.isArray(w.prs) ? w.prs.length : (typeof w.prs === 'number' && Number.isFinite(w.prs) && w.prs >= 0 ? Math.floor(w.prs) : 0),
     entries: (w.entries || []).map(en => ({
       id: en.id,
       name: libraryName(en.id),
@@ -229,13 +229,13 @@ function cleanWorkout(w) {
         : null,
       sets: (en.sets || []).map(s => {
         const o = { done: !!s.done };
-        if (s.w != null) o.w = s.w;
-        if (s.r != null) o.r = s.r;
-        if (s.sec != null) o.sec = s.sec;
-        if (s.min != null) o.min = s.min;
-        if (s.speed != null) o.speed = s.speed;
-        if (s.rir != null) o.rir = s.rir;
-        if (s.rpe != null) o.rpe = s.rpe;
+        if (typeof s.w === 'number' && Number.isFinite(s.w) && s.w >= 0) o.w = s.w;
+        if (typeof s.r === 'number' && Number.isFinite(s.r) && s.r >= 0) o.r = s.r;
+        if (typeof s.sec === 'number' && Number.isFinite(s.sec) && s.sec >= 0) o.sec = s.sec;
+        if (typeof s.min === 'number' && Number.isFinite(s.min) && s.min >= 0) o.min = s.min;
+        if (typeof s.speed === 'number' && Number.isFinite(s.speed) && s.speed >= 0) o.speed = s.speed;
+        if (typeof s.rir === 'number' && Number.isFinite(s.rir) && s.rir >= 0) o.rir = s.rir;
+        if (typeof s.rpe === 'number' && Number.isFinite(s.rpe) && s.rpe >= 0) o.rpe = s.rpe;
         return o;
       })
     }))
