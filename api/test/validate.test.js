@@ -195,3 +195,15 @@ test('add-routine preserves cardio min/speed and week must be an object', () => 
   });
   assert.equal(badPlan.ok, false);
 });
+
+test('superset rejects linking an exercise with itself', () => {
+  const selfSuper = review([
+    change({
+      type: 'superset',
+      target: { routineId: 'r1', exId: '0001' },
+      after: { link: true, with: '0001' },
+    }),
+  ]);
+  assert.equal(selfSuper.ok, false);
+  assert.match(selfSuper.errors[0], /cannot superset an exercise with itself/);
+});

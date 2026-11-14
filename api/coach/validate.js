@@ -58,6 +58,7 @@ const isPlainObj = v => v !== null && typeof v === 'object' && !Array.isArray(v)
 const clampStr = (v, n) => String(v == null ? '' : v).slice(0, n);
 
 function sameMultiset(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
   if (a.length !== b.length) return false;
   const counts = new Map();
   for (const item of a) counts.set(item, (counts.get(item) || 0) + 1);
@@ -300,6 +301,7 @@ export function validateReview(data, plan) {
         const a = c.after;
         if (a.link && !isStr(a.with)) { errors.push(`${where}.after.with is required when linking a superset`); return; }
         if (a.link && !(routine.ex || []).some(e => e.id === a.with)) { errors.push(`${where}.after.with "${a.with}" is not in routine "${routine.name}"`); return; }
+        if (a.link && a.with === target.exId) { errors.push(`${where}.after.with cannot superset an exercise with itself`); return; }
         out.after = { link: !!a.link, ...(a.link ? { with: a.with } : {}) };
         break;
       }
