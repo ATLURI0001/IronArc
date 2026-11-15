@@ -277,8 +277,10 @@ export function validateReview(data, plan) {
       case 'sec': if (!isInt(c.after, 5, 3600) ) { errors.push(`${where}.after must be seconds (5-3600)`); return; } break;
       case 'cardio': {
         const a = c.after || {};
-        if (!isInt(a.min, 1, 180) && !isNum(a.speed)) { errors.push(`${where}.after must carry min and/or speed`); return; }
-        out.after = { ...(isInt(a.min, 1, 180) ? { min: a.min } : {}), ...(isNum(a.speed) && a.speed > 0 ? { speed: a.speed } : {}) };
+        const hasMin = isInt(a.min, 1, 180);
+        const hasSpeed = isNum(a.speed) && a.speed > 0;
+        if (!hasMin && !hasSpeed) { errors.push(`${where}.after must carry min (1-180) and/or positive speed`); return; }
+        out.after = { ...(hasMin ? { min: a.min } : {}), ...(hasSpeed ? { speed: a.speed } : {}) };
         break;
       }
       case 'inc': if (!isNum(c.after) || c.after <= 0) { errors.push(`${where}.after must be a positive increment`); return; } break;

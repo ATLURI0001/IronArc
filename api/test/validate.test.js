@@ -207,3 +207,24 @@ test('superset rejects linking an exercise with itself', () => {
   assert.equal(selfSuper.ok, false);
   assert.match(selfSuper.errors[0], /cannot superset an exercise with itself/);
 });
+
+test('cardio change rejects non-positive speed and invalid min', () => {
+  const badSpeed = review([
+    change({
+      type: 'cardio',
+      target: { routineId: 'r1', exId: '0001' },
+      after: { speed: -5 },
+    }),
+  ]);
+  assert.equal(badSpeed.ok, false);
+  assert.match(badSpeed.errors[0], /must carry min \(1-180\) and\/or positive speed/);
+
+  const zeroSpeed = review([
+    change({
+      type: 'cardio',
+      target: { routineId: 'r1', exId: '0001' },
+      after: { speed: 0, min: 0 },
+    }),
+  ]);
+  assert.equal(zeroSpeed.ok, false);
+});
