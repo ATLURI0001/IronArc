@@ -228,3 +228,45 @@ test('cardio change rejects non-positive speed and invalid min', () => {
   ]);
   assert.equal(zeroSpeed.ok, false);
 });
+
+test('rename-routine and add-routine enforce non-whitespace names and inc bounds', () => {
+  const whitespaceRename = review([
+    change({
+      type: 'rename-routine',
+      target: { routineId: 'r1' },
+      after: '   ',
+    }),
+  ]);
+  assert.equal(whitespaceRename.ok, false);
+  assert.match(whitespaceRename.errors[0], /must be the new routine name/);
+
+  const validRename = review([
+    change({
+      type: 'rename-routine',
+      target: { routineId: 'r1' },
+      after: '  Push Day B  ',
+    }),
+  ]);
+  assert.equal(validRename.ok, true);
+  assert.equal(validRename.proposal.changes[0].after, 'Push Day B');
+
+  const excessiveInc = review([
+    change({
+      type: 'inc',
+      target: { routineId: 'r1', exId: '0001' },
+      after: 100,
+    }),
+  ]);
+  assert.equal(excessiveInc.ok, false);
+  assert.match(excessiveInc.errors[0], /must be a positive increment/);
+
+  const validInc = review([
+    change({
+      type: 'inc',
+      target: { routineId: 'r1', exId: '0001' },
+      after: 2.5,
+    }),
+  ]);
+  assert.equal(validInc.ok, true);
+});
+
