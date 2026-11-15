@@ -249,7 +249,7 @@ export function validateReview(data, plan) {
           ...(MODES.includes(a.mode) ? { mode: a.mode } : { mode: 'reps' }),
           ...(isInt(a.reps, 1, 100) ? { reps: a.reps } : {}),
           ...(isInt(a.sec, 5, 3600) ? { sec: a.sec } : {}),
-          ...(isNum(a.weight) && a.weight > 0 ? { weight: a.weight } : {}),
+          ...(isNum(a.weight) && a.weight > 0 && a.weight <= 1000 ? { weight: a.weight } : {}),
           ...(POLICIES.includes(a.prog) ? { prog: a.prog } : {}),
           ...(isInt(a.position, 0, MAX_EX_PER_ROUTINE) ? { position: a.position } : {})
         };
@@ -263,7 +263,7 @@ export function validateReview(data, plan) {
           id: a.id, name: libraryName(a.id),
           ...(isInt(a.sets, 1, 10) ? { sets: a.sets } : {}),
           ...(isInt(a.reps, 1, 100) ? { reps: a.reps } : {}),
-          ...(isNum(a.weight) && a.weight > 0 ? { weight: a.weight } : {})
+          ...(isNum(a.weight) && a.weight > 0 && a.weight <= 1000 ? { weight: a.weight } : {})
         };
         break;
       }
@@ -283,7 +283,7 @@ export function validateReview(data, plan) {
         out.after = { ...(hasMin ? { min: a.min } : {}), ...(hasSpeed ? { speed: a.speed } : {}) };
         break;
       }
-      case 'inc': if (!isNum(c.after) || c.after <= 0) { errors.push(`${where}.after must be a positive increment`); return; } break;
+      case 'inc': if (!isNum(c.after) || c.after <= 0 || c.after > 50) { errors.push(`${where}.after must be a positive increment (<= 50)`); return; } break;
       case 'routine-prog':
       case 'exercise-prog':
         if (!POLICIES.includes(c.after)) { errors.push(`${where}.after must be one of ${POLICIES.join(', ')}`); return; }
@@ -310,11 +310,11 @@ export function validateReview(data, plan) {
       case 'add-routine': {
         if (!isPlainObj(c.after)) { errors.push(`${where}.after must be an object`); return; }
         const a = c.after;
-        if (!isStr(a.name)) { errors.push(`${where}.after.name is required`); return; }
+        if (!isStr(a.name) || !a.name.trim()) { errors.push(`${where}.after.name is required`); return; }
         const ex = (Array.isArray(a.ex) ? a.ex : []).filter(e => e && isStr(e.id) && libraryHas(e.id)).slice(0, MAX_EX_PER_ROUTINE);
         if (!ex.length) { errors.push(`${where}.after.ex must list at least one exercise from the library`); return; }
         out.after = {
-          name: clampStr(a.name, 40), emoji: clampStr(a.emoji || '🏋️', 8),
+          name: clampStr(a.name.trim(), 40), emoji: clampStr(a.emoji || '🏋️', 8),
           ...(POLICIES.includes(a.prog) ? { prog: a.prog } : {}),
           ex: ex.map(e => {
             const mode = MODES.includes(e.mode) ? e.mode : 'reps';
@@ -339,10 +339,11 @@ export function validateReview(data, plan) {
         };
         break;
       }
-      case 'rename-routine':
-        if (!isStr(c.after)) { errors.push(`${where}.after must be the new routine name`); return; }
-        out.after = clampStr(c.after, 40);
+      case 'rename-routine': {
+        if (!isStr(c.after) || !c.after.trim()) { errors.push(`${where}.after must be the new routine name`); return; }
+        out.after = clampStr(c.after.trim(), 40);
         break;
+      }
       case 'week': {
         if (!isInt(target.weekday, 0, 6)) { errors.push(`${where}.target.weekday must be 0-6`); return; }
         // null/'rest' clears the day; anything else has to be a routine that exists.
